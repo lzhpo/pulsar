@@ -36,6 +36,7 @@ import org.apache.pulsar.broker.resources.PulsarResources;
 import org.apache.pulsar.broker.PulsarServerException;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.partition.PartitionedTopicMetadata;
+import org.apache.pulsar.common.policies.data.TenantInfo;
 import org.apache.pulsar.common.policies.data.TenantInfoImpl;
 import org.apache.pulsar.discovery.service.server.ServiceConfig;
 import org.apache.pulsar.metadata.api.MetadataStoreException.NotFoundException;
@@ -105,7 +106,7 @@ public class BrokerDiscoveryProvider implements Closeable {
         try {
             checkAuthorization(service, topicName, role, authenticationData);
             final String path = path(PARTITIONED_TOPIC_PATH_ZNODE,
-                    topicName.getNamespaceObject().toString(), "persistent", topicName.getEncodedLocalName());
+                    topicName.getNamespaceObject().toString(), topicName.getDomain().value(), topicName.getEncodedLocalName());
             // gets the number of partitions from the zk cache
             pulsarResources.getNamespaceResources().getPartitionedTopicResources().getAsync(path)
                     .thenAccept(metadata -> {
@@ -138,7 +139,7 @@ public class BrokerDiscoveryProvider implements Closeable {
         if (!service.getAuthorizationService().canLookup(topicName, role, authenticationData)) {
             LOG.warn("[{}] Role {} is not allowed to lookup topic", topicName, role);
             // check namespace authorization
-            TenantInfoImpl tenantInfo;
+            TenantInfo tenantInfo;
             try {
                 tenantInfo = service.getPulsarResources().getTenantResources()
                         .get(path(POLICIES, topicName.getTenant()))

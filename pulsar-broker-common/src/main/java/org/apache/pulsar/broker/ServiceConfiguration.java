@@ -1471,9 +1471,11 @@ public class ServiceConfiguration implements PulsarConfiguration {
     @FieldContext(
         category = CATEGORY_STORAGE_ML,
         doc = "Max number of entries to append to a ledger before triggering a rollover.\n\n"
-            + "A ledger rollover is triggered on these conditions Either the max"
-            + " rollover time has been reached or max entries have been written to the"
-            + " ledger and at least min-time has passed")
+            + "A ledger rollover is triggered after the min rollover time has passed"
+            + " and one of the following conditions is true:"
+            + " the max rollover time has been reached,"
+            + " the max entries have been written to the ledger, or"
+            + " the max ledger size has been written to the ledger")
     private int managedLedgerMaxEntriesPerLedger = 50000;
     @FieldContext(
         category = CATEGORY_STORAGE_ML,
@@ -1945,6 +1947,11 @@ public class ServiceConfiguration implements PulsarConfiguration {
     private boolean exposeProducerLevelMetricsInPrometheus = false;
     @FieldContext(
             category = CATEGORY_METRICS,
+            doc = "If true, export managed ledger metrics (aggregated by namespace)"
+    )
+    private boolean exposeManagedLedgerMetricsInPrometheus = true;
+    @FieldContext(
+            category = CATEGORY_METRICS,
             doc = "If true, export managed cursor metrics"
     )
     private boolean exposeManagedCursorMetricsInPrometheus = false;
@@ -1960,6 +1967,14 @@ public class ServiceConfiguration implements PulsarConfiguration {
             " this would be more efficient but may be inaccurate. Default is false."
     )
     private boolean exposePreciseBacklogInPrometheus = false;
+
+    @FieldContext(
+        category = CATEGORY_METRICS,
+        doc = "Time in milliseconds that metrics endpoint would time out. Default is 30s.\n" +
+            " Increase it if there are a lot of topics to expose topic-level metrics.\n" +
+            " Set it to 0 to disable timeout."
+    )
+    private long metricsServletTimeoutMs = 30000;
 
     @FieldContext(
             category = CATEGORY_METRICS,

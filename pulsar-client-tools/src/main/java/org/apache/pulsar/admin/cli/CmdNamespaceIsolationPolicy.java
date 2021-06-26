@@ -22,11 +22,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.admin.cli.utils.NameValueParameterSplitter;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.admin.PulsarAdminException;
-import org.apache.pulsar.common.policies.data.AutoFailoverPolicyDataImpl;
+import org.apache.pulsar.common.policies.data.AutoFailoverPolicyData;
 import org.apache.pulsar.common.policies.data.AutoFailoverPolicyType;
 import org.apache.pulsar.common.policies.data.BrokerNamespaceIsolationDataImpl;
 import org.apache.pulsar.common.policies.data.BrokerNamespaceIsolationData;
@@ -65,7 +67,7 @@ public class CmdNamespaceIsolationPolicy extends CmdBase {
             String policyName = getOneArgument(params, 1, 2);
 
             // validate and create the POJO
-            NamespaceIsolationDataImpl namespaceIsolationData = createNamespaceIsolationData(namespaces, primary, secondary,
+            NamespaceIsolationData namespaceIsolationData = createNamespaceIsolationData(namespaces, primary, secondary,
                     autoFailoverPolicyTypeName, autoFailoverPolicyParams);
 
             getAdmin().clusters().createNamespaceIsolationPolicy(clusterName, policyName, namespaceIsolationData);
@@ -151,15 +153,12 @@ public class CmdNamespaceIsolationPolicy extends CmdBase {
     }
 
     private List<String> validateList(List<String> list) {
-        for (int i = 0; i < list.size(); i++) {
-            if (list.get(i).isEmpty()) {
-                list.remove(i);
-            }
-        }
-        return list;
+        return list.stream()
+                .filter(StringUtils::isNotEmpty)
+                .collect(Collectors.toList());
     }
 
-    private NamespaceIsolationDataImpl createNamespaceIsolationData(List<String> namespaces, List<String> primary,
+    private NamespaceIsolationData createNamespaceIsolationData(List<String> namespaces, List<String> primary,
                                                                     List<String> secondary, String autoFailoverPolicyTypeName, Map<String, String> autoFailoverPolicyParams) {
 
         // validate
@@ -181,27 +180,29 @@ public class CmdNamespaceIsolationPolicy extends CmdBase {
         // System.out.println("autoFailoverPolicyTypeName = " + autoFailoverPolicyTypeName);
         // System.out.println("autoFailoverPolicyParams = " + autoFailoverPolicyParams);
 
-        NamespaceIsolationDataImpl nsIsolationData = new NamespaceIsolationDataImpl();
+        NamespaceIsolationData.Builder nsIsolationDataBuilder = NamespaceIsolationData.builder();
 
         if (namespaces != null) {
-            nsIsolationData.namespaces = namespaces;
+            nsIsolationDataBuilder.namespaces(namespaces);
         }
 
         if (primary != null) {
-            nsIsolationData.primary = primary;
+            nsIsolationDataBuilder.primary(primary);
         }
 
         if (secondary != null) {
-            nsIsolationData.secondary = secondary;
+            nsIsolationDataBuilder.secondary(secondary);
         }
 
-        nsIsolationData.auto_failover_policy = new AutoFailoverPolicyDataImpl();
-        nsIsolationData.auto_failover_policy.policy_type = AutoFailoverPolicyType
-                .fromString(autoFailoverPolicyTypeName);
-        nsIsolationData.auto_failover_policy.parameters = autoFailoverPolicyParams;
+        AutoFailoverPolicyType policyType = AutoFailoverPolicyType.fromString(autoFailoverPolicyTypeName);
+
+        nsIsolationDataBuilder.autoFailoverPolicy(AutoFailoverPolicyData.builder()
+                .policyType(policyType)
+                .parameters(autoFailoverPolicyParams)
+                .build());
 
         // validation if necessary
-        if (nsIsolationData.auto_failover_policy.policy_type == AutoFailoverPolicyType.min_available) {
+        if (policyType == AutoFailoverPolicyType.min_available) {
             // ignore
             boolean error = true;
             String[] expectParamKeys = { "min_limit", "usage_threshold" };
@@ -225,7 +226,7 @@ public class CmdNamespaceIsolationPolicy extends CmdBase {
             throw new ParameterException("Unknown auto failover policy type specified : " + autoFailoverPolicyTypeName);
         }
 
-        return nsIsolationData;
+        return nsIsolationDataBuilder.build();
     }
 
     public CmdNamespaceIsolationPolicy(Supplier<PulsarAdmin> admin) {
